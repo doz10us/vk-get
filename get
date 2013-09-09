@@ -1,0 +1,59 @@
+#!/bin/bash
+here=$(ls ./ | grep -e "\.pls" | head -1)
+if [[ -d /var/tmp/vkget ]]; then
+	rm -rf /var/tmp/vkget
+fi
+mkdir /var/tmp/vkget
+if [ $here != "" ]; then
+	echo "Please enter path to .pls file: [$here]"
+	read key
+	if [ "$key" == "Y" ] || [ "$key" == "y" ] || [ "$key" == "" ]; then
+		path=$here
+	else
+		path=$key
+	fi
+else
+	read "path"
+fi
+echo Using $path
+echo "Please enter save path: [./mp3]"
+read savepath
+if [ "$savepath" == "Y" ] || [ "$savepath" == "y" ] || [ "$savepath" == "" ]; then
+		savepath="\.\/mp3\/"
+else
+	savepath=$(echo $savepath | sed 's,\([^\/]\)$,\1\/,' | sed 's,^\([^.\?\/]\),\.\/\1,' | sed 's/\//\\\//g' )
+fi
+if [[ ! -d "$(echo $savepath | sed 's/\\//g')" ]]; then
+			mkdir -p $(echo $savepath | sed 's/\\//g')
+			echo "Directory $(echo $savepath | sed 's/\\//g') created"
+fi
+echo Using $(echo $savepath | sed 's/\\//g')
+cat "$path" | grep -e "Title" | sed 's/Title[[:digit:]]*=//' > /var/tmp/vkget/mp3
+echo "How much tracks?"
+echo "[ press Enter for all $(cat /var/tmp/vkget/mp3 | wc -l) ]"
+echo "[ enter L and press Enter to view list of songs ]" 
+echo "[ enter number to get first <number> songs]"
+echo '#!/bin/bash' > /var/tmp/vkget/temporary_script.sh
+read choose
+if [ "$choose" == "L" ]; then
+		less -N /var/tmp/vkget/mp3
+		echo "Number:"
+		read choose
+		if [ "$choose" == "" ]; then
+			echo "Downloading all tracks."
+			cat "$path" | grep -e "File" -e "Title" | sed 's/File[[:digit:]]*=//;s/Title[[:digit:]]*=//' | sed 'N;s/\n/ /' | sed 's/\"/_/g' | sed "s/\'/_/g" | sed 's/_$//' | sed "s/^/curl /g" | sed "s/\(\.mp3\) /\1 -o \"$savepath/" | sed 's/$/\.mp3\"/' | sed 's/\(^.*\/\)\([^\/]*\)\(\.mp3\"\)/echo \-n \"Downloading \2\.\.\.\" \&\& \1\2\3 \&\& echo \"Saved\.\"/' >> /var/tmp/vkget/temporary_script.sh
+		else
+			cat "$path" | grep -e "File" -e "Title" | sed 's/File[[:digit:]]*=//;s/Title[[:digit:]]*=//' | sed 'N;s/\n/ /' | head -$choose | sed 's/\"/_/g' | sed "s/\'/_/g" | sed 's/_$//' | sed "s/^/curl /g" | sed "s/\(\.mp3\) /\1 -o \"$savepath/" | sed 's/$/\.mp3\"/' | sed 's/\(^.*\/\)\([^\/]*\)\(\.mp3\"\)/echo \-n \"Downloading \2\.\.\.\" \&\& \1\2\3 \&\& echo \"Saved\.\"/' >> /var/tmp/vkget/temporary_script.sh
+		fi
+elif [ "$choose" == "" ]; then
+		echo "Downloading all tracks."
+		cat "$path" | grep -e "File" -e "Title" | sed 's/File[[:digit:]]*=//;s/Title[[:digit:]]*=//' | sed 'N;s/\n/ /' | sed 's/\"/_/g' | sed "s/\'/_/g" | sed 's/_$//' | sed "s/^/curl /g" | sed "s/\(\.mp3\) /\1 -o \"$savepath/" | sed 's/$/\.mp3\"/' | sed 's/\(^.*\/\)\([^\/]*\)\(\.mp3\"\)/echo \-n \"Downloading \2\.\.\.\" \&\& \1\2\3 \&\& echo \"Saved\.\"/' >> /var/tmp/vkget/temporary_script.sh
+elif [ 0 -lt "$choose" -a "$choose" -le $(cat /var/tmp/vkget/mp3 | wc -l) ]; then
+		cat "$path" | grep -e "File" -e "Title" | sed 's/File[[:digit:]]*=//;s/Title[[:digit:]]*=//' | sed 'N;s/\n/ /' | head -$choose | sed 's/\"/_/g' | sed "s/\'/_/g" | sed 's/_$//' | sed "s/^/curl /g" | sed "s/\(\.mp3\) /\1 -o \"$savepath/" | sed 's/$/\.mp3\"/' | sed 's/\(^.*\/\)\([^\/]*\)\(\.mp3\"\)/echo \-n \"Downloading \2\.\.\.\" \&\& \1\2\3 \&\& echo \"Saved\.\"/' >> /var/tmp/vkget/temporary_script.sh
+else
+		echo "Error!"
+fi
+chmod +x /var/tmp/vkget/temporary_script.sh
+/var/tmp/vkget/temporary_script.sh 2>/dev/null
+rm -rf /var/tmp/vkget
+echo "Done."
